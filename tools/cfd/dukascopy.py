@@ -33,6 +33,7 @@ from dataclasses import dataclass
 
 from tools.cfd.instruments import VOLUME_SCALE, Instrument, suggest_digits
 
+FEED_HOST = "datafeed.dukascopy.com"
 FEED_URL = (
     "https://datafeed.dukascopy.com/datafeed/{symbol}/{year:04d}/{month:02d}"
     "/{day:02d}/BID_candles_min_1.bi5"
@@ -51,6 +52,33 @@ class SanityError(ValueError):
 
 class FetchError(RuntimeError):
     """The feed could not be reached after retrying."""
+
+
+class EgressBlocked(FetchError):
+    """A proxy refused the connection before it reached the feed.
+
+    Distinct from an ordinary fetch failure: retrying, waiting, or a working
+    broker account change nothing, because the request never leaves the machine.
+    """
+
+    def __init__(self, host: str, detail: str):
+        super().__init__(
+            f"{host} is blocked by this machine's network policy ({detail}).\n"
+            f"The request never reached Dukascopy, so this is not a feed or "
+            f"broker problem and retrying will not help.\n"
+            f"Fix: allow {host} in the environment's egress policy and start a "
+            f"fresh session, or run this command on a machine with open "
+            f"internet access."
+        )
+        self.host = host
+
+
+#: Substrings a CONNECT-level refusal produces, across urllib and proxy wording.
+_EGRESS_MARKERS = (
+    "tunnel connection failed",
+    "proxy connection failed",
+    "cannot connect to proxy",
+)
 
 
 @dataclass(frozen=True)
@@ -119,10 +147,16 @@ def fetch_day(
             last = exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             last = exc
+        if _is_egress_block(last):
+            raise EgressBlocked(FEED_HOST, str(last)) from last
         if attempt < retries:
             sleep(delay)
             delay *= 2
     raise FetchError(f"{url} failed after {retries + 1} attempts: {last}")
+
+
+def _is_egress_block(exc: Exception | None) -> bool:
+    return exc is not None and any(m in str(exc).lower() for m in _EGRESS_MARKERS)
 
 
 def decompress(blob: bytes) -> bytes:

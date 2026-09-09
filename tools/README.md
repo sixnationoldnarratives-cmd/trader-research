@@ -16,13 +16,43 @@ python3 -m tools.cfd merge-repairs             # fold __repair_*.csv into monthl
 python3 -m tools.cfd verify EURUSD --days 3    # refetch stored days and diff
 ```
 
+## Bringing the data up to date
+
+Copy-paste, on any machine with normal internet access and Python 3.11+.
+Nothing to install — the tool is standard library only, and the Dukascopy feed
+is free and needs no account, broker or API key:
+
+```sh
+git clone -b claude/cfd-data-download-tk2idr <this repo> trader-research
+cd trader-research
+python3 -m tools.cfd verify EURUSD --days 3   # confirms the decode against committed bars
+python3 -m tools.cfd download                 # catches all 21 symbols up
+git commit -am "Refresh bar data" && git push
+```
+
+`verify` first: if it prints `OK`, the decode settings are right and `download`
+can be trusted. If it prints `MISMATCH`, fix `digits` in
+`tools/cfd/instruments.py` before writing anything.
+
 ## Network access
 
-The feed lives at `datafeed.dukascopy.com`. In a Claude Code web session this
-host is **blocked by the environment's egress policy** unless it has been added
-to the allowed hosts — `download` and `verify` will fail with
-`Tunnel connection failed: 403 Forbidden`. Everything else (`status`,
-`aggregate`, `merge-repairs`, the tests) works offline.
+The feed lives at `datafeed.dukascopy.com`. Behind a filtered network — a Claude
+Code web session's egress policy, a corporate proxy — the connection is refused
+at CONNECT and the tool stops immediately with:
+
+```
+datafeed.dukascopy.com is blocked by this machine's network policy.
+The request never reached Dukascopy, so this is not a feed or broker problem
+and retrying will not help.
+```
+
+The request never leaves the machine, so a working broker account or a resolved
+feed outage makes no difference. Either allow the host in the environment's
+egress policy — and start a **fresh** session, since a running container does
+not pick up a policy change — or run the command somewhere with open internet.
+
+Everything else (`status`, `aggregate`, `merge-repairs`, the tests) works
+offline.
 
 ## The feed
 

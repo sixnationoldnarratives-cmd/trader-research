@@ -155,6 +155,33 @@ class FetchTest(unittest.TestCase):
                 "EURUSD", dt.date(2026, 1, 3), opener=opener, sleep=lambda _: None
             )
 
+    def test_proxy_refusal_is_reported_as_an_egress_block(self):
+        # A CONNECT-level refusal means the request never left the machine, so
+        # it must not be retried or mistaken for a feed outage.
+        slept = []
+        opener = FakeOpener(
+            urllib.error.URLError("Tunnel connection failed: 403 Forbidden")
+        )
+        with self.assertRaises(dk.EgressBlocked) as ctx:
+            dk.fetch_day(
+                "EURUSD", dt.date(2026, 9, 1), opener=opener, sleep=slept.append
+            )
+        message = str(ctx.exception)
+        self.assertIn("datafeed.dukascopy.com is blocked", message)
+        self.assertIn("not a feed or broker problem", message)
+        self.assertEqual(opener.calls, 1)  # not retried
+        self.assertEqual(slept, [])        # no backoff wasted
+
+    def test_egress_block_is_a_fetch_error(self):
+        self.assertTrue(issubclass(dk.EgressBlocked, dk.FetchError))
+
+    def test_ordinary_network_errors_still_retry(self):
+        opener = FakeOpener(urllib.error.URLError("timed out"), b"payload")
+        got = dk.fetch_day(
+            "EURUSD", dt.date(2026, 9, 1), opener=opener, sleep=lambda _: None
+        )
+        self.assertEqual(got, b"payload")
+
     def test_client_errors_are_not_retried(self):
         opener = FakeOpener(self._error(403))
         with self.assertRaises(dk.FetchError):

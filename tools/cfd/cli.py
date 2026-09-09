@@ -10,7 +10,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from tools.cfd import instruments
-from tools.cfd.dukascopy import FetchError, SanityError, download_day
+from tools.cfd.dukascopy import EgressBlocked, FetchError, SanityError, download_day
 from tools.cfd.store import TF_1M, TF_8M, Store, month_key, months_between
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -188,6 +188,8 @@ def cmd_download(args, store: Store) -> int:
                     day = futures[future]
                     try:
                         bars = future.result()
+                    except EgressBlocked as exc:
+                        raise SystemExit(f"\n{exc}") from None
                     except SanityError as exc:
                         print(f"  ABORT {exc}", file=sys.stderr)
                         symbol_failed = True
@@ -264,6 +266,8 @@ def cmd_verify(args, store: Store) -> int:
                         and dt.datetime.fromtimestamp(int(r[0]) / 1000, tz=dt.timezone.utc).date() == day]
             try:
                 got = [bar.row() for bar in download_day(symbol, day, inst)]
+            except EgressBlocked as exc:
+                raise SystemExit(f"\n{exc}") from None
             except (SanityError, FetchError) as exc:
                 print(f"{symbol} {day}: {exc}")
                 mismatches += 1
