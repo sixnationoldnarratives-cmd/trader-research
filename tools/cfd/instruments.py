@@ -69,6 +69,13 @@ INSTRUMENTS: dict[str, Instrument] = {
         Instrument("LIGHTCMDUSD", 3, -60.0, 200.0, digits_confirmed=False),
         Instrument("COPPERCMDUSD", 4, 1.0, 8.0, digits_confirmed=False),
         Instrument("USATECHIDXUSD", 2, 1500.0, 40000.0, digits_confirmed=False),
+        # Not yet in the tree. Feed symbol names and digits are from Dukascopy's
+        # usual naming and have NOT been checked against the live feed -- a wrong
+        # name simply 404s (recorded as an empty day, no data written), and a
+        # wrong scale trips the sanity guard. Confirm both with `verify` before
+        # trusting either series.
+        Instrument("DEUIDXEUR", 2, 1500.0, 60000.0, digits_confirmed=False),
+        Instrument("BTCUSD", 2, 100.0, 1_000_000.0, digits_confirmed=False),
     ]
 }
 

@@ -139,6 +139,27 @@ Run `python3 -m tools.cfd status` for the live picture.
   sits in a 41k–48k band from 2012 to 2026 (WTI ranged about −$37 to $130), and
   USATECHIDX drifts 78,000 to 103,000, +32%, while the Nasdaq 100 did roughly
   +900%. Refetch these with `--from-scratch` rather than extending them.
+## Using this data to test futures
+
+The tree holds CFDs, not futures contracts. How well a CFD stands in for the
+contract varies a lot by instrument:
+
+| Future | CFD proxy | Why |
+|---|---|---|
+| GC gold | good | basis is interest only, small and stable (`XAUUSD`) |
+| NQ Nasdaq | good intraday | brokers price the CFD off the front future (`USATECHIDXUSD`) |
+| FDAX | good intraday | DAX is a total-return index, so no dividend drag in the basis (`DEUIDXEUR`) |
+| CL crude | weak | roll yield drives returns and a CFD has none (`LIGHTCMDUSD`) |
+| HG copper | weak | same term-structure gap, milder (`COPPERCMDUSD`) |
+| BTC CME | poor | wide, swinging basis to spot; the contract stops at the weekend while spot does not |
+
+What a CFD series can never contain: term structure, roll yield, exchange
+volume, session boundaries, settlement prints. Prototype on it, then validate on
+contract data before risking money.
+
+Note for long DAX backtests: the index went from 30 to 40 constituents in
+September 2021, a structural break mid-sample.
+
 - **Six symbols have no 8M tree at all** (CADEUR, CADJPY, CADUSD, EURCAD,
   GBPAUD, USDCAD). `aggregate` will build it if that is wanted; it was left
   alone because the omission looks deliberate.
